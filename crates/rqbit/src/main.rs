@@ -270,8 +270,14 @@ struct Opts {
     /// Disable trackers (for debugging DHT, LSD and --initial-peers)
     #[arg(long = "disable-trackers", env = "RQBIT_TRACKERS_DISABLE")]
     disable_trackers: bool,
-}
 
+    #[arg(long = "mock-client", env = "RQBIT_MOCK_CLIENT")]
+    mock_client: Option<MockClient>,
+}
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum MockClient {
+    QBittorrent,
+}
 #[derive(Parser)]
 struct ServerStartOptions {
     /// The output folder to write to. If not exists, it will be created.
@@ -537,7 +543,13 @@ async fn async_main(mut opts: Opts, cancel: CancellationToken) -> anyhow::Result
         enable_upnp_port_forwarding: !opts.disable_upnp_port_forward,
         ..Default::default()
     });
-
+    let peer_id = match opts.mock_client {
+        Some(MockClient::QBittorrent) => Some(librqbit::generate_azereus_style(
+            *b"qB",
+            (4, 4, 5, 0),
+        )),
+        None => None,
+    };
     let mut sopts = SessionOptions {
         disable_dht: opts.disable_dht,
         disable_dht_persistence: opts.disable_dht_persistence,
@@ -548,7 +560,7 @@ async fn async_main(mut opts: Opts, cancel: CancellationToken) -> anyhow::Result
         dht_config: None,
         // This will be overridden by "server start" below if needed.
         persistence: None,
-        peer_id: None,
+        peer_id,
         listen,
         connect: Some(ConnectionOptions {
             proxy_url: opts.socks_url.take(),
